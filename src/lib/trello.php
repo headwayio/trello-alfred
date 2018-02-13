@@ -21,19 +21,27 @@ Class Trello {
 
 	public function addCard( $title, $description, $labels, $board_id, $list_id, $user_token )
 	{
-		$card_data = array(
+    $tz = 'Europe/London';
+    $timestamp = time();
+    // $utc = new DateTime('now', new DateTimeZone('UTC'));
+    // $dt = new DateTime("now", strtotime('3 hours')); //first argument "must" be a string
+    $dt = new DateTime("now", new DateTimeZone($tz)); //first argument "must" be a string
+    $dt->setTimestamp($timestamp); //adjust the object to correct timestamp
+    $thaDate = $dt->format('Y-m-d H:i:s');
 
+		$card_data = array(
 			'name'      => $title,
 			'desc'      => $description,
 			'labels'    => $labels,
-			'due'       => null,
+			'due'       => $thaDate,
 			'list_id'   => $list_id,
 			'pos'       => 'bottom',
+      'idMembers' => 'your_hard_coded_member_id_here',
 
 		);
 
 		$endpoint_url = $this->buildURL( $board_id, $user_token );
-		
+
 		$result = $this->sendRequest( $endpoint_url, $card_data, $user_token );
 
 		return $result;
@@ -44,20 +52,20 @@ Class Trello {
 		$ch = curl_init();
 
 		// Set query data here with the URL
-		curl_setopt( $ch, CURLOPT_URL, $endpoint_url ); 
-		curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, 0 ); 
+		curl_setopt( $ch, CURLOPT_URL, $endpoint_url );
+		curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, 0 );
 		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
 		curl_setopt( $ch, CURLOPT_TIMEOUT, '25' );
-		
+
 		$content = trim(curl_exec( $ch ));
-		
+
 		curl_close( $ch );
-		
+
 		$board          = json_decode( $content );
 		$lists          = $board->lists;
 		$trello_list_id = $lists[0]->id;
 
-		foreach ($lists as $list) 
+		foreach ($lists as $list)
 		{
 			if ($list->id == $data['list_id'])
 			{
@@ -66,44 +74,44 @@ Class Trello {
 			}
 		}
 
-		if ( $trello_list_id ) 
+		if ( $trello_list_id )
 		{
-			
+
 			$ch = curl_init( $this->App->trello['api_endpoint_base'] . "/cards" );
 
-			// 
+			//
 			// Add validation key and token to the post
-			// 
+			//
 			$data['key']    = $this->App->trello['app_key'];
 			$data['token']  = $user_token;
 			$data['idList'] = $trello_list_id;
-			
+
 			curl_setopt_array( $ch, array(
 
 			    CURLOPT_SSL_VERIFYPEER => false,
 			    CURLOPT_RETURNTRANSFER => true, 	// So we can get the URL of the newly-created card
 			    CURLOPT_POST           => true,
-			    
-			    // 
+
+			    //
 			    //	If you use an array without being wrapped in http_build_query, the Trello API server won't recognize your POST variables
-			    // 
-			    
+			    //
+
 			    CURLOPT_POSTFIELDS => http_build_query( $data ),
-			
+
 			));
 
 			$result      = curl_exec( $ch );
 
 			$TrelloCard = json_decode( $result );
-			
+
 			if (empty( $TrelloCard ))
 			{
 				return "Error adding card: " . $result;
 			}
 
-			return ( ($TrelloCard) ? $TrelloCard : false );			
-		} 
-		else 
+			return ( ($TrelloCard) ? $TrelloCard : false );
+		}
+		else
 		{
 			return 'List not found';
 		}
@@ -112,7 +120,7 @@ Class Trello {
 	public function getBoards( $trello_user_id, $token=null )
 	{
 		$_endpoint_url = 'member/' . $trello_user_id . '/boards/';
-		
+
 		if (empty( $token ))
 		{
 			$token = $this->user_token;
@@ -128,7 +136,7 @@ Class Trello {
 	public function getLists( $trello_board_id, $token=null )
 	{
 		$_endpoint_url = 'boards/' . $trello_board_id . '/lists';
-		
+
 		if (empty( $token ))
 		{
 			$token = $this->user_token;
@@ -176,14 +184,14 @@ Class Trello {
 
 				$fields = $_fields;
 			}
-			
+
 			$_endpoint_url = 'member/' . $trello_username;
-			
+
 			$_payload      = array(
 				'fields'	=> $fields,
 				'boards'	=> 'all'
 			);
-			
+
 			$TrelloClient = new Client( $this->App->trello['app_key'] );
 
 			$Member = $TrelloClient->get( $_endpoint_url, $_payload );
@@ -199,9 +207,9 @@ Class Trello {
 	public function getAuthUrl( $app_name )
 	{
 		$endpoint_url = 'member/dberube';
-		
+
 		$TrelloClient = new Client( $this->App->trello['app_key'] );
-		
+
 		return $TrelloClient->getAuthorizationUrl( $app_name, $this->App->trello['auth_return_url'], array('read', 'write', 'account'), 'never', 'fragment' );
 	}
 }
